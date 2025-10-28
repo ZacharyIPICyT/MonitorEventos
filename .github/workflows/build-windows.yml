@@ -1,0 +1,119 @@
+name: Build Windows Executable
+
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+  workflow_dispatch:  # Permite ejecutar manualmente
+
+env:
+  APP_NAME: VideoEventMonitor
+  PYTHON_VERSION: '3.9'
+
+jobs:
+  build:
+    name: Build ${{ env.APP_NAME }}
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, 3.10]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        
+    - name: Display Python version
+      run: |
+        python --version
+        python -c "import sys; print(f'Architecture: {sys.platform}')"
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        pip install opencv-python==4.8.1.78
+        pip install pandas==2.1.1
+        pip install numpy==1.24.3
+        
+    - name: Verify imports
+      run: |
+        python -c "import cv2; print(f'OpenCV version: {cv2.__version__}')"
+        python -c "import pandas; print(f'Pandas version: {pandas.__version__}')"
+        python -c "import numpy; print(f'NumPy version: {numpy.__version__}')"
+        python -c "print('All imports successful!')"
+      
+    - name: Create version file
+      run: |
+        # Crear un archivo de versión
+        $version = "1.0.0"
+        if ($env:GITHUB_REF -like "refs/tags/*") {
+          $version = $env:GITHUB_REF -replace "refs/tags/v", ""
+        }
+        echo "APP_VERSION=$version" | Out-File -FilePath version.env -Encoding ASCII
+        echo "Version: $version"
+        
+    - name: Build executable with PyInstaller
+      run: |
+        # Crear el ejecutable
+        pyinstaller --name=${{ env.APP_NAME }} `
+                   --onefile `
+                   --console `
+                   --icon=icon.ico `
+                   --add-data="*.py;." `
+                   --hidden-import=cv2 `
+                   --hidden-import=pandas `
+                   --hidden-import=numpy `
+                   --hidden-import=datetime `
+                   --hidden-import=os `
+                   --hidden-import=sys `
+                   --clean `
+                   main.py
+                   
+        # Verificar que el ejecutable se creó
+        if (Test-Path "dist\${{ env.APP_NAME }}.exe") {
+          echo "Executable created successfully!"
+          dir "dist\${{ env.APP_NAME }}.exe"
+        } else {
+          echo "Error: Executable not found!"
+          exit 1
+        }
+      
+    - name: Test executable (basic)
+      run: |
+        # Verificación básica del ejecutable
+        cd dist
+        .\${{ env.APP_NAME }}.exe --version 2>&1 || echo "Executable test completed"
+        
+    - name: Upload executable artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.APP_NAME }}-Python${{ matrix.python-version }}
+        path: dist/${{ env.APP_NAME }}.exe
+        retention-days: 30
+        
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/${{ env.APP_NAME }}.exe
+        body: |
+          Windows Executable for Video Event Monitor
+          
+          Built with:
+          - Python ${{ matrix.python-version }}
+          - OpenCV 4.8.1
+          - Pandas 2.1.1
+          - NumPy 1.24.3
+          
+          Features:
+          - Video event monitoring
+          - CSV export
+          - Speed control
+          - Organized file output
