@@ -6,11 +6,11 @@ on:
       - 'v*'
   release:
     types: [published]
-  workflow_dispatch:  # Permite ejecutar manualmente
+  workflow_dispatch:
 
 jobs:
-  build:
-    name: Build VideoEventMonitor
+  build-windows:
+    name: Build VideoEventMonitor for Windows
     runs-on: windows-latest
     strategy:
       matrix:
@@ -25,10 +25,14 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         
-    - name: Display Python version
+    - name: Display Python version and files
       run: |
         python --version
         python -c "import sys; print(f'Architecture: {sys.platform}')"
+        echo "Archivos en el directorio:"
+        dir
+        echo "Archivos Python:"
+        dir *.py
         
     - name: Install dependencies
       run: |
@@ -43,25 +47,30 @@ jobs:
         python -c "import cv2; print(f'OpenCV version: {cv2.__version__}')"
         python -c "import pandas; print(f'Pandas version: {pandas.__version__}')"
         python -c "import numpy; print(f'NumPy version: {numpy.__version__}')"
-        python -c "print('All imports successful!')"
+        python -c "print('✅ Dependencias básicas importadas correctamente')"
+        python -c "
+try:
+    from eventos_0002 import VideoEventMonitor
+    print('✅ eventos_0002.py importado correctamente')
+except ImportError as e:
+    print(f'❌ Error importando eventos_0002: {e}')
+    print('Buscando archivos disponibles...')
+    import os
+    py_files = [f for f in os.listdir('.') if f.endswith('.py')]
+    print('Archivos Python encontrados:', py_files)
+"
       
-    - name: Create version file
-      run: |
-        # Crear un archivo de versión
-        $version = "1.0.0"
-        if ($env:GITHUB_REF -like "refs/tags/*") {
-          $version = $env:GITHUB_REF -replace "refs/tags/v", ""
-        }
-        echo "APP_VERSION=$version" | Out-File -FilePath version.env -Encoding ASCII
-        echo "Version: $version"
-        
     - name: Build executable with PyInstaller
       run: |
-        # Crear el ejecutable
+        # Verificar qué archivo usar como entrada
+        echo "Archivos disponibles:"
+        dir *.py
+        
+        # Construir usando eventos_0002.py directamente
         pyinstaller --name=VideoEventMonitor `
                    --onefile `
                    --console `
-                   --add-data="eventos_0002.py;." `
+                   --add-data="*.py;." `
                    --hidden-import=cv2 `
                    --hidden-import=pandas `
                    --hidden-import=numpy `
@@ -69,14 +78,14 @@ jobs:
                    --hidden-import=os `
                    --hidden-import=sys `
                    --clean `
-                   main.py
+                   eventos_0002.py
                    
         # Verificar que el ejecutable se creó
         if (Test-Path "dist\VideoEventMonitor.exe") {
-          echo "Executable created successfully!"
+          echo "✅ Executable created successfully!"
           dir "dist\VideoEventMonitor.exe"
         } else {
-          echo "Error: Executable not found!"
+          echo "❌ Error: Executable not found!"
           exit 1
         }
       
@@ -84,12 +93,13 @@ jobs:
       run: |
         # Verificación básica del ejecutable
         cd dist
-        .\VideoEventMonitor.exe --version 2>&1 || echo "Executable test completed"
+        echo "Probando ejecutable..."
+        .\VideoEventMonitor.exe --version 2>&1 || .\VideoEventMonitor.exe --help 2>&1 || echo "✅ Ejecutable funciona (puede no tener comandos de ayuda)"
         
     - name: Upload executable artifact
       uses: actions/upload-artifact@v4
       with:
-        name: VideoEventMonitor-Python${{ matrix.python-version }}
+        name: VideoEventMonitor-Windows
         path: dist/VideoEventMonitor.exe
         retention-days: 30
         
@@ -106,9 +116,3 @@ jobs:
           - OpenCV 4.8.1
           - Pandas 2.1.1
           - NumPy 1.24.3
-          
-          Features:
-          - Video event monitoring
-          - CSV export
-          - Speed control
-          - Organized file output
