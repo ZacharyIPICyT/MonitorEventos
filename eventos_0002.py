@@ -27,6 +27,7 @@ class VideoEventMonitor:
         self.output_file = ""
         self.just_activated = False
         self.all_events_data = []  # Para almacenar todos los eventos individuales
+        self.playback_speed = 0.75  
         
     def clean_path(self, path):
         """Limpia la ruta quitando comillas y espacios extras"""
@@ -73,10 +74,23 @@ class VideoEventMonitor:
                 else:
                     print("❌ Por favor ingresa solo un carácter válido")
     
+    def create_output_directory(self):
+        """Crea la carpeta de salida con el nombre del mouse ID"""
+        # Crear carpeta con el ID del ratón si no existe
+        output_dir = self.mouse_id
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+            print(f"📁 Carpeta creada: {output_dir}")
+        return output_dir
+    
     def setup_output_file(self):
-        """Configura el archivo de salida"""
+        """Configura el archivo de salida en la carpeta del mouse ID"""
+        output_dir = self.create_output_directory()
+        
+        # Generar nombre de archivo con mouse ID y fecha
+        fecha_actual = datetime.now().strftime("%Y%m%d_%H%M%S")
         base_name = os.path.splitext(os.path.basename(self.video_path))[0]
-        self.output_file = f"eventos_{self.mouse_id}_{base_name}.csv"
+        self.output_file = os.path.join(output_dir, f"{self.mouse_id}_{fecha_actual}_{base_name}.csv")
         
         # Crear DataFrame inicial
         self.df = pd.DataFrame(columns=[
@@ -90,6 +104,7 @@ class VideoEventMonitor:
             f"Mouse ID: {self.mouse_id}",
             "Video: " + os.path.basename(self.video_path),
             f"Ruta: {self.video_path}",
+            f"Velocidad actual: {self.playback_speed}x",
             "\nTECLAS ASIGNADAS:"
         ]
         
@@ -109,15 +124,27 @@ class VideoEventMonitor:
             "  r: Reiniciar evento actual", 
             "  q: Salir y guardar",
             "  s: Guardar progreso actual",
+            "  +: Aumentar velocidad del video",
+            "  -: Disminuir velocidad del video",
+            "  1: Velocidad normal (1x)",
+            "  2: Velocidad rápida (2x)",
+            "  3: Velocidad muy rápida (4x)",
+            "  0.5: Velocidad lenta (0.5x)",
             "\n📝 COMPORTAMIENTO DE EVENTOS:",
             "  - Presiona una tecla de evento para ACTIVARLO",
             "  - Presiona CUALQUIER OTRA tecla para DESACTIVARLO",
-            "  - Los controles (espacio, s, r) no desactivan eventos",
+            "  - Los controles (espacio, s, r, +, -, 1, 2, 3, 0.5) no desactivan eventos",
             "  - Solo puede haber UN evento activo a la vez",
             "\nPresiona Enter para comenzar..."
         ])
         
         print("\n".join(instructions))
+    
+    def change_playback_speed(self, new_speed):
+        """Cambia la velocidad de reproducción"""
+        old_speed = self.playback_speed
+        self.playback_speed = new_speed
+        print(f"🎬 Velocidad cambiada: {old_speed}x → {new_speed}x")
     
     def monitor_events(self):
         """Monitorea los eventos en el video"""
@@ -143,6 +170,12 @@ class VideoEventMonitor:
         
         cv2.namedWindow('Monitor de Eventos', cv2.WINDOW_NORMAL)
         
+        # Calcular delay basado en la velocidad
+        def get_delay():
+            if self.playback_speed <= 0:
+                return 1
+            return max(1, int(1 / (fps * self.playback_speed) * 1000))
+        
         while True:
             if not paused:
                 ret, frame = cap.read()
@@ -164,9 +197,11 @@ class VideoEventMonitor:
                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
             cv2.putText(info_frame, "PAUSADO" if paused else "REPRODUCIENDO", (10, 120), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255) if paused else (0, 255, 0), 2)
+            cv2.putText(info_frame, f"Velocidad: {self.playback_speed}x", (10, 150), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
             
             # Eventos activos
-            y_pos = 150
+            y_pos = 180
             if self.active_events:
                 cv2.putText(info_frame, "EVENTO ACTIVO:", (10, y_pos), 
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
@@ -201,14 +236,21 @@ class VideoEventMonitor:
                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
                     y_pos += 20
             
-            # Controles
-            controls_y = info_frame.shape[0] - 80
+            # Controles de velocidad
+            controls_y = info_frame.shape[0] - 100
+            cv2.putText(info_frame, "CONTROLES VELOCIDAD: [+]-Aumentar [-]-Disminuir [1]-Normal [2]-Lento [3]-Muy lento", 
+                       (10, controls_y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (150, 255, 150), 1)
+            
+            # Controles generales
+            controls_y += 20
             cv2.putText(info_frame, "CONTROLES: [ESPACIO]Pausa [r]Reiniciar [s]Guardar [q]Salir", 
                        (10, controls_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 150, 255), 1)
             
             cv2.imshow('Monitor de Eventos', info_frame)
             
-            key = cv2.waitKey(1 if not paused else 0) & 0xFF
+            # Usar delay basado en la velocidad actual
+            delay = get_delay() if not paused else 0
+            key = cv2.waitKey(delay) & 0xFF
             
             # Si no se presionó tecla, continuar
             if key == 255:
@@ -229,6 +271,28 @@ class VideoEventMonitor:
             elif key == ord('r'):  # Reiniciar evento actual
                 self.deactivate_all_events(current_time)
                 print("🔄 Eventos activos reiniciados")
+                continue
+            
+            # Controles de velocidad
+            elif key == ord('+'):  # Aumentar velocidad
+                new_speed = min(8.0, self.playback_speed * 2)
+                self.change_playback_speed(new_speed)
+                continue
+            elif key == ord('-'):  # Disminuir velocidad
+                new_speed = max(0.125, self.playback_speed / 2)
+                self.change_playback_speed(new_speed)
+                continue
+            elif key == ord('1'):  # Velocidad normal
+                self.change_playback_speed(1.0)
+                continue
+            elif key == ord('2'):  # Velocidad lenta
+                self.change_playback_speed(0.5)
+                continue
+            elif key == ord('3'):  # Velocidad muy lenta
+                self.change_playback_speed(0.25)
+                continue
+            elif key == ord('.'):  # Velocidad lenta (tecla . para 0.05x)
+                self.change_playback_speed(0.05)
                 continue
             
             # Lógica de eventos
@@ -319,9 +383,12 @@ class VideoEventMonitor:
             print("⚠️  No hay datos para generar el informe")
             return
         
+        # Usar la carpeta del mouse ID
+        output_dir = self.mouse_id
+        
         # Nombre del archivo de informe con el formato solicitado
         fecha_prueba = datetime.now().strftime("%d-%m-%Y")  # Formato: dia-mes-año
-        report_file = f"{self.mouse_id}_{fecha_prueba}.txt"
+        report_file = os.path.join(output_dir, f"{self.mouse_id}_{fecha_prueba}.txt")
         
         # Calcular estadísticas
         eventos_por_tipo = {}
