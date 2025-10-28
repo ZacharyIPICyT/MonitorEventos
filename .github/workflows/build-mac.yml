@@ -28,9 +28,9 @@ jobs:
       run: |
         python --version
         python -c "import sys; print(f'Architecture: {sys.platform}')"
-        echo "📁 Archivos en el directorio:"
+        echo "Archivos en el directorio:"
         ls -la
-        echo "🐍 Archivos Python:"
+        echo "Archivos Python:"
         ls -la *.py
         
     - name: Install dependencies
@@ -46,13 +46,13 @@ jobs:
         python -c "import cv2; print(f'OpenCV version: {cv2.__version__}')"
         python -c "import pandas; print(f'Pandas version: {pandas.__version__}')"
         python -c "import numpy; print(f'NumPy version: {numpy.__version__}')"
-        python -c "print('✅ Dependencias básicas importadas correctamente')"
+        python -c "print('Dependencias básicas importadas correctamente')"
         python -c "
 try:
     from eventos_0002 import VideoEventMonitor
-    print('✅ eventos_0002.py importado correctamente')
+    print('eventos_0002.py importado correctamente')
 except ImportError as e:
-    print(f'❌ Error importando eventos_0002: {e}')
+    print(f'Error importando eventos_0002: {e}')
     print('Buscando archivos disponibles...')
     import os
     py_files = [f for f in os.listdir('.') if f.endswith('.py')]
@@ -62,7 +62,7 @@ except ImportError as e:
     - name: Build executable with PyInstaller
       run: |
         # Verificar qué archivo usar como entrada
-        echo "📋 Archivos disponibles:"
+        echo "Archivos disponibles:"
         ls -la *.py
         
         # Construir usando eventos_0002.py directamente
@@ -81,12 +81,12 @@ except ImportError as e:
                    
         # Verificar que el ejecutable se creó
         if [ -f "dist/VideoEventMonitor" ]; then
-          echo "✅ Executable created successfully!"
+          echo "Executable created successfully!"
           ls -la "dist/VideoEventMonitor"
           # Dar permisos de ejecución
           chmod +x "dist/VideoEventMonitor"
         else
-          echo "❌ Error: Executable not found!"
+          echo "Error: Executable not found!"
           exit 1
         fi
         
@@ -94,7 +94,7 @@ except ImportError as e:
       run: |
         # Verificación básica del ejecutable
         cd dist
-        echo "🔍 Probando ejecutable..."
+        echo "Probando ejecutable..."
         ./VideoEventMonitor --version 2>&1 || ./VideoEventMonitor --help 2>&1 || echo "✅ Ejecutable funciona (puede no tener comandos de ayuda)"
         
     - name: Upload macOS executable
