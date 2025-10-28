@@ -8,17 +8,13 @@ on:
     types: [published]
   workflow_dispatch:  # Permite ejecutar manualmente
 
-env:
-  APP_NAME: VideoEventMonitor
-  PYTHON_VERSION: '3.9'
-
 jobs:
   build:
-    name: Build ${{ env.APP_NAME }}
+    name: Build VideoEventMonitor
     runs-on: windows-latest
     strategy:
       matrix:
-        python-version: [3.8, 3.9, 3.10]
+        python-version: [3.9]
 
     steps:
     - name: Checkout code
@@ -62,10 +58,9 @@ jobs:
     - name: Build executable with PyInstaller
       run: |
         # Crear el ejecutable
-        pyinstaller --name=${{ env.APP_NAME }} `
+        pyinstaller --name=VideoEventMonitor `
                    --onefile `
                    --console `
-                   --icon=icon.ico `
                    --add-data="*.py;." `
                    --hidden-import=cv2 `
                    --hidden-import=pandas `
@@ -77,9 +72,9 @@ jobs:
                    main.py
                    
         # Verificar que el ejecutable se creó
-        if (Test-Path "dist\${{ env.APP_NAME }}.exe") {
+        if (Test-Path "dist\VideoEventMonitor.exe") {
           echo "Executable created successfully!"
-          dir "dist\${{ env.APP_NAME }}.exe"
+          dir "dist\VideoEventMonitor.exe"
         } else {
           echo "Error: Executable not found!"
           exit 1
@@ -89,20 +84,20 @@ jobs:
       run: |
         # Verificación básica del ejecutable
         cd dist
-        .\${{ env.APP_NAME }}.exe --version 2>&1 || echo "Executable test completed"
+        .\VideoEventMonitor.exe --version 2>&1 || echo "Executable test completed"
         
     - name: Upload executable artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.APP_NAME }}-Python${{ matrix.python-version }}
-        path: dist/${{ env.APP_NAME }}.exe
+        name: VideoEventMonitor-Python${{ matrix.python-version }}
+        path: dist/VideoEventMonitor.exe
         retention-days: 30
         
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
-        files: dist/${{ env.APP_NAME }}.exe
+        files: dist/VideoEventMonitor.exe
         body: |
           Windows Executable for Video Event Monitor
           
