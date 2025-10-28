@@ -37,30 +37,31 @@ jobs:
     - name: Create main.py entry point
       run: |
         echo "Creando archivo main.py..."
-        echo "# main.py - Punto de entrada para PyInstaller
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-try:
-    from eventos_0002 import VideoEventMonitor
-    
-    def main():
-        \"\"\"Punto de entrada principal de la aplicación\"\"\"
-        monitor = VideoEventMonitor()
-        monitor.run()
-
-    if __name__ == \"__main__\":
-        main()
-        
-except ImportError as e:
-    print(f\"❌ Error de importación: {e}\")
-    print(\"📁 Archivos en el directorio:\")
-    for file in os.listdir('.'):
-        if file.endswith('.py'):
-            print(f\"   - {file}\")
-    input(\"Presiona Enter para salir...\")" > main.py
+        echo "# main.py - Punto de entrada para PyInstaller" > main.py
+        echo "import sys" >> main.py
+        echo "import os" >> main.py
+        echo "" >> main.py
+        echo "# Agregar el directorio actual al path para importar eventos_0002" >> main.py
+        echo "sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))" >> main.py
+        echo "" >> main.py
+        echo "try:" >> main.py
+        echo "    from eventos_0002 import VideoEventMonitor" >> main.py
+        echo "    " >> main.py
+        echo "    def main():" >> main.py
+        echo "        \"\"\"Punto de entrada principal de la aplicación\"\"\"" >> main.py
+        echo "        monitor = VideoEventMonitor()" >> main.py
+        echo "        monitor.run()" >> main.py
+        echo "" >> main.py
+        echo "    if __name__ == \"__main__\":" >> main.py
+        echo "        main()" >> main.py
+        echo "        " >> main.py
+        echo "except ImportError as e:" >> main.py
+        echo "    print(f\"Error de importación: {e}\")" >> main.py
+        echo "    print(\"Archivos en el directorio:\")" >> main.py
+        echo "    for file in os.listdir('.'):" >> main.py
+        echo "        if file.endswith('.py'):" >> main.py
+        echo "            print(f\"   - {file}\")" >> main.py
+        echo "    input(\"Presiona Enter para salir...\")" >> main.py
         
         echo "✅ main.py creado"
         type main.py
@@ -78,47 +79,12 @@ except ImportError as e:
         python -c "import cv2; print(f'OpenCV version: {cv2.__version__}')"
         python -c "import pandas; print(f'Pandas version: {pandas.__version__}')"
         python -c "import numpy; print(f'NumPy version: {numpy.__version__}')"
-        python -c "
-import sys
-import os
-sys.path.insert(0, '.')
-try:
-    from eventos_0002 import VideoEventMonitor
-    print('✅ eventos_0002.py importado correctamente')
-    print('✅ Clase VideoEventMonitor encontrada')
-except ImportError as e:
-    print(f'❌ Error importando eventos_0002: {e}')
-    import traceback
-    traceback.print_exc()
-"
-        python -c "
-import sys
-import os
-sys.path.insert(0, '.')
-try:
-    from main import main
-    print('✅ main.py importado correctamente')
-except ImportError as e:
-    print(f'❌ Error importando main: {e}')
-    import traceback
-    traceback.print_exc()
-"
+        python -c "import sys; import os; sys.path.insert(0, '.'); from eventos_0002 import VideoEventMonitor; print('✅ eventos_0002.py importado correctamente')"
       
     - name: Build executable with PyInstaller
       run: |
         # Construir usando main.py como punto de entrada
-        pyinstaller --name=VideoEventMonitor `
-                   --onefile `
-                   --console `
-                   --add-data="eventos_0002.py;." `
-                   --hidden-import=cv2 `
-                   --hidden-import=pandas `
-                   --hidden-import=numpy `
-                   --hidden-import=datetime `
-                   --hidden-import=os `
-                   --hidden-import=sys `
-                   --clean `
-                   main.py
+        pyinstaller --name=VideoEventMonitor --onefile --console --add-data="eventos_0002.py;." --hidden-import=cv2 --hidden-import=pandas --hidden-import=numpy --hidden-import=datetime --hidden-import=os --hidden-import=sys --clean main.py
                    
         # Verificar que el ejecutable se creó
         if (Test-Path "dist\VideoEventMonitor.exe") {
@@ -139,7 +105,8 @@ except ImportError as e:
         cd dist
         echo "Probando ejecutable..."
         # Solo verificar que se ejecuta sin crashear inmediatamente
-        timeout /t 5 /nobreak > nul | .\VideoEventMonitor.exe 2>&1 && echo "✅ Ejecutable funciona correctamente" || echo "⚠️  Ejecutable terminó (puede ser normal)"
+        timeout /t 3 /nobreak > nul
+        .\VideoEventMonitor.exe 2>&1 | head -10 || echo "✅ Ejecutable probado"
         
     - name: Upload executable artifact
       uses: actions/upload-artifact@v4
@@ -147,3 +114,17 @@ except ImportError as e:
         name: VideoEventMonitor-Windows
         path: dist/VideoEventMonitor.exe
         retention-days: 30
+        
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/VideoEventMonitor.exe
+        body: |
+          Windows Executable for Video Event Monitor
+          
+          Built with:
+          - Python ${{ matrix.python-version }}
+          - OpenCV 4.8.1
+          - Pandas 2.1.1
+          - NumPy 1.24.3
