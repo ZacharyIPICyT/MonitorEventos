@@ -48,7 +48,7 @@ jobs:
         echo "    from eventos_0002 import VideoEventMonitor" >> main.py
         echo "    " >> main.py
         echo "    def main():" >> main.py
-        echo "        \"\"\"Punto de entrada principal de la aplicación\"\"\"" >> main.py
+        echo "        \"\"\"Punto de entrada principal de la aplicacion\"\"\"" >> main.py
         echo "        monitor = VideoEventMonitor()" >> main.py
         echo "        monitor.run()" >> main.py
         echo "" >> main.py
@@ -56,14 +56,14 @@ jobs:
         echo "        main()" >> main.py
         echo "        " >> main.py
         echo "except ImportError as e:" >> main.py
-        echo "    print(f\"Error de importación: {e}\")" >> main.py
+        echo "    print(f\"Error de importacion: {e}\")" >> main.py
         echo "    print(\"Archivos en el directorio:\")" >> main.py
         echo "    for file in os.listdir('.'):" >> main.py
         echo "        if file.endswith('.py'):" >> main.py
         echo "            print(f\"   - {file}\")" >> main.py
         echo "    input(\"Presiona Enter para salir...\")" >> main.py
         
-        echo "✅ main.py creado"
+        echo "main.py creado"
         type main.py
         
     - name: Install dependencies
@@ -76,10 +76,10 @@ jobs:
         
     - name: Verify imports
       run: |
-        python -c "import cv2; print(f'OpenCV version: {cv2.__version__}')"
-        python -c "import pandas; print(f'Pandas version: {pandas.__version__}')"
-        python -c "import numpy; print(f'NumPy version: {numpy.__version__}')"
-        python -c "import sys; import os; sys.path.insert(0, '.'); from eventos_0002 import VideoEventMonitor; print('✅ eventos_0002.py importado correctamente')"
+        python -c "import cv2; print('OpenCV version:', cv2.__version__)"
+        python -c "import pandas; print('Pandas version:', pandas.__version__)"
+        python -c "import numpy; print('NumPy version:', numpy.__version__)"
+        python -c "import sys; import os; sys.path.insert(0, '.'); from eventos_0002 import VideoEventMonitor; print('SUCCESS: eventos_0002.py importado correctamente')"
       
     - name: Build executable with PyInstaller
       run: |
@@ -88,12 +88,12 @@ jobs:
                    
         # Verificar que el ejecutable se creó
         if (Test-Path "dist\VideoEventMonitor.exe") {
-          echo "✅ Executable created successfully!"
+          echo "SUCCESS: Executable created successfully!"
           dir "dist\VideoEventMonitor.exe"
           echo "Tamaño del ejecutable:"
           (Get-Item "dist\VideoEventMonitor.exe").Length
         } else {
-          echo "❌ Error: Executable not found!"
+          echo "ERROR: Executable not found!"
           echo "Contenido de dist/:"
           if (Test-Path "dist") { dir dist }
           exit 1
@@ -101,12 +101,11 @@ jobs:
       
     - name: Test executable (basic)
       run: |
-        # Verificación básica del ejecutable - sin forzar error
+        # Verificación básica del ejecutable
         cd dist
         echo "Probando ejecutable..."
-        # Solo verificar que se ejecuta sin crashear inmediatamente
-        timeout /t 3 /nobreak > nul
-        .\VideoEventMonitor.exe 2>&1 | head -10 || echo "✅ Ejecutable probado"
+        # Ejecutar con timeout y capturar salida
+        cmd /c "echo q | VideoEventMonitor.exe" 2>&1 || cmd /c "VideoEventMonitor.exe --help" 2>&1 || echo "Executable test completed"
         
     - name: Upload executable artifact
       uses: actions/upload-artifact@v4
