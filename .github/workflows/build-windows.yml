@@ -61,7 +61,7 @@ jobs:
         pyinstaller --name=VideoEventMonitor `
                    --onefile `
                    --console `
-                   --add-data="*.py;." `
+                   --add-data="eventos_0002.py;." `
                    --hidden-import=cv2 `
                    --hidden-import=pandas `
                    --hidden-import=numpy `
